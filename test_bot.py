@@ -9,7 +9,7 @@ from unittest.mock import Mock, AsyncMock, patch
 
 from bot import Conversation, MENU, keyboard, create_bot
 from config import Settings
-from polling import serve
+from polling import Polling, serve
 from vkbottle.exception_factory import VKAPIError
 from modes import MODES, system_prompt
 from proxyapi_client import AssistantResponse, ProxyAPIError, Usage, parse_response
@@ -176,6 +176,27 @@ class UsageTests(unittest.TestCase):
 
 
 class TransportTests(Setup, unittest.IsolatedAsyncioTestCase):
+    async def test_rejected_fresh_session_does_not_cause_refresh_loop(self):
+        polling = Polling()
+        server = {"server": "https://example.invalid", "key": "test", "ts": "1"}
+        with patch("polling.BotPolling.get_server", new_callable=AsyncMock, return_value=server), \
+             patch("polling.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            await polling.get_server()
+            await polling.get_server()
+        self.assertIn(unittest.mock.call(300), sleep.await_args_list)
+
+    async def test_readiness_requires_valid_poll_response(self):
+        polling = Polling()
+        polling.refreshes_without_events = 1
+        with patch("polling.BotPolling.get_event", new_callable=AsyncMock,
+                   side_effect=[{"failed": 2}, {"ts": "2", "updates": []}]):
+            await polling.get_event({})
+            self.assertFalse(polling.channel_confirmed)
+            self.assertEqual(polling.refreshes_without_events, 1)
+            await polling.get_event({})
+            self.assertTrue(polling.channel_confirmed)
+            self.assertEqual(polling.refreshes_without_events, 0)
+
     async def test_vk_message_new_reaches_menu_handler(self):
         settings = Settings("test-token", "test-key", "test", "https://example.invalid", 100)
         with patch("bot.ROOT", Path(self.tmp.name)):

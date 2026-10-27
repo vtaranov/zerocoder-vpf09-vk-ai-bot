@@ -11,15 +11,32 @@ from vkbottle.polling.bot_polling import BotPolling
 
 class Polling(BotPolling):
     last_refresh = 0.0
+    refreshes_without_events = 0
+    channel_confirmed = False
 
     async def get_server(self):
+        if self.refreshes_without_events >= 1:
+            logging.warning("Новая сессия LongPoll не принята сервером; пауза перед обновлением 300 секунд")
+            await asyncio.sleep(300)
         delay = max(0, 10 - (time.monotonic() - self.last_refresh))
         if delay:
             await asyncio.sleep(delay)
         self.last_refresh = time.monotonic()
         server = await asyncio.wait_for(super().get_server(), timeout=30)
-        logging.info("LongPoll-сервер получен, группа %s: приём событий запущен", self.group_id)
+        self.refreshes_without_events += 1
+        logging.info("Параметры LongPoll получены, группа %s; канал ещё не подтверждён", self.group_id)
         return server
+
+    async def get_event(self, server):
+        event = await super().get_event(server)
+        if "ts" in event and "failed" not in event:
+            self.refreshes_without_events = 0
+            if not self.channel_confirmed:
+                logging.info("LongPoll отвечает корректно; приём событий подтверждён")
+                self.channel_confirmed = True
+        else:
+            self.channel_confirmed = False
+        return event
 
 
 async def serve(bot):
