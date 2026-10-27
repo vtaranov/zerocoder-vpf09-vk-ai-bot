@@ -12,6 +12,7 @@ from vkbottle.bot import Bot, Message
 
 from config import ROOT, Settings
 from modes import MODES
+from polling import Polling, serve
 from proxyapi_client import ProxyAPIClient, ProxyAPIError
 from service import AIService
 from storage import UserStore
@@ -164,7 +165,7 @@ def create_bot(settings):
     store = UserStore(ROOT / "users")
     client = ProxyAPIClient(settings.api_key, settings.base_url, 60)
     conversation = Conversation(store, AIService(client, store, settings.model, settings.max_tokens))
-    bot = Bot(token=settings.vk_token)
+    bot = Bot(token=settings.vk_token, polling=Polling())
 
     @bot.on.private_message()
     async def handler(message: Message):
@@ -193,7 +194,7 @@ def main():
         except BlockingIOError:
             raise SystemExit("Этот бот уже запущен")
         logging.info("VPf09: VK LongPoll, модель %s", settings.model)
-        create_bot(settings).run()
+        asyncio.run(serve(create_bot(settings)))
 
 
 if __name__ == "__main__":

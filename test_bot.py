@@ -1,12 +1,16 @@
 """Проверки требований VPf09 без запросов к платному API."""
 
 import json
+import asyncio
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock, patch
 
-from bot import Conversation, MENU, keyboard
+from bot import Conversation, MENU, keyboard, create_bot
+from config import Settings
+from polling import serve
+from vkbottle.exception_factory import VKAPIError
 from modes import MODES, system_prompt
 from proxyapi_client import AssistantResponse, ProxyAPIError, Usage, parse_response
 from service import AIService
@@ -169,6 +173,40 @@ class UsageTests(unittest.TestCase):
     def test_all_five_roles_have_distinct_instructions(self):
         self.assertEqual(len({system_prompt(mode) for mode in MODES}), 5)
         self.assertEqual(len(json.loads(keyboard(MENU))["buttons"]), 3)
+
+
+class TransportTests(Setup, unittest.IsolatedAsyncioTestCase):
+    async def test_vk_message_new_reaches_menu_handler(self):
+        settings = Settings("test-token", "test-key", "test", "https://example.invalid", 100)
+        with patch("bot.ROOT", Path(self.tmp.name)):
+            bot = create_bot(settings)
+        bot.api.request = AsyncMock(return_value={"response": [
+            {"peer_id": 10, "message_id": 42, "conversation_message_id": 2}]})
+        event = {"type": "message_new", "group_id": 239167324, "event_id": "test-start",
+                 "object": {"message": {"id": 1, "date": 1793100000, "peer_id": 10,
+                                         "from_id": 10, "text": "Начать", "out": 0,
+                                         "attachments": [], "conversation_message_id": 1,
+                                         "fwd_messages": [], "important": False,
+                                         "is_hidden": False, "random_id": 0, "version": 10000000},
+                            "client_info": {"button_actions": ["text"], "keyboard": True,
+                                            "inline_keyboard": True, "lang_id": 0}}}
+        await bot.process_event(event, bot.api)
+        calls = [call for call in bot.api.request.call_args_list if call.args[0] == "messages.send"]
+        self.assertEqual(len(calls), 1)
+        sent = calls[0].args[1]
+        self.assertIn("Главное меню", sent["message"])
+        self.assertEqual(json.loads(sent["keyboard"])["buttons"][0][0]["action"]["label"], "Новый диалог")
+
+    async def test_vk_rate_limit_waits_and_closes_cleanly(self):
+        bot = Mock()
+        bot.run_polling = AsyncMock(side_effect=[VKAPIError[29](error_msg="Rate limit reached"),
+                                                asyncio.CancelledError()])
+        bot.api.http_client.close = AsyncMock()
+        with patch("polling.asyncio.sleep", new_callable=AsyncMock) as sleep:
+            with self.assertRaises(asyncio.CancelledError):
+                await serve(bot)
+        sleep.assert_awaited_once_with(300)
+        bot.api.http_client.close.assert_awaited_once()
 
 
 if __name__ == "__main__":
