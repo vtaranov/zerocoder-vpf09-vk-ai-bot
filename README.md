@@ -104,14 +104,6 @@ cp .env.example .env
 модели. Бот обрабатывает личные сообщения всех пользователей, которые пишут
 сообществу.
 
-## Связанные учебные проекты
-
-- [VPd04](https://github.com/vtaranov/VPd04-vk-weather-bot): VKBottle, LongPoll, клавиатура.
-- [VPd06](https://github.com/vtaranov/VPd06-ai-assistant): переиспользован `proxyapi_client.py`;
-  JSON-память расширена для нескольких диалогов и пользователей.
-- [VPf07](https://github.com/vtaranov/zerocoder-vpf07-ai-agent): подход к атомарной записи
-  JSON и разделению пользовательского контекста.
-
 ## Документация
 
 - [VKBottle: пример бота и клавиатур](https://github.com/vkbottle/vkbottle/blob/master/examples/high-level/easy_bot.py)
