@@ -47,8 +47,8 @@ def main():
         ask("Возврат к первому диалогу", "Повтори моё кодовое слово без пояснений.", "кедр-742")
         evidence["total_usage"] = user["usage"]
         evidence["json_persistence_verified"] = (store.directory / "1.json").exists()
-    output = ROOT.parent / "VPf09 - ДЗ.assets" / "proxyapi-live-check.json"
-    output.parent.mkdir(exist_ok=True)
+    output = ROOT / "artifacts" / "proxyapi-live-check.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Итого:", evidence["total_usage"], flush=True)
 
