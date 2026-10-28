@@ -32,20 +32,14 @@ cp .env.example .env
 .venv/bin/python bot.py
 ```
 
-Для текущей учебной папки пакеты уже установлены в окружении VPd04:
-
-```bash
-"../../../05. Модуль 5. Работа с API/VPd04. Кейс 1. API-погода/VPd04-vk-weather-bot/.venv/bin/python" bot.py
-```
-
 Напишите боту `Начать`. В настройках текущего диалога доступны переименование,
 очистка истории и удаление. Команда `Меню` отменяет ввод названия.
 
 ## Проверка
 
 ```bash
-python -m unittest -v test_bot
-python check_live.py
+.venv/bin/python -m unittest -v test_bot
+.venv/bin/python check_live.py
 ```
 
 Вторая команда делает **6 платных запросов** к ProxyAPI и сохраняет локальный
